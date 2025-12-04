@@ -18,6 +18,7 @@ class FlightSearchParams(BaseModel):
 
 class Flight(BaseModel):
     """Flight search result schema."""
+    id: int
     flight_id: str
     airline: str
     origin: str

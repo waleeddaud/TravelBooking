@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         SECRET_KEY: Secret key for JWT token signing (must be kept secure)
         ALGORITHM: JWT hashing algorithm (default: HS256)
         ACCESS_TOKEN_EXPIRE_MINUTES: JWT token expiration time in minutes
+        DATABASE_URL: PostgreSQL database connection string
     """
     
     APP_NAME: str = "TravelAPI"
@@ -25,6 +26,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    DATABASE_URL: str
     
     class Config:
         env_file = ".env"

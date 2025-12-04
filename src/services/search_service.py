@@ -1,12 +1,13 @@
 """
 Search service for flights and hotels.
 
-Provides in-memory mock data for search functionality.
-This is structured to be easily replaced with database queries.
+Provides database-backed search functionality for flights and hotels.
 """
 
-from typing import List
+from typing import List, Optional
+from sqlalchemy.orm import Session
 from src.schemas.search_schema import Flight, Hotel
+from src.models.flight_model import Flight as FlightModel
 
 
 # Mock flight data
@@ -46,7 +47,7 @@ MOCK_FLIGHTS = [
     }
 ]
 
-# Mock hotel data
+# Mock hotel data (hotels will be added to database later)
 MOCK_HOTELS = [
     {
         "hotel_id": "HT001",
@@ -85,29 +86,50 @@ class SearchService:
     """Service for searching flights and hotels."""
     
     @staticmethod
-    def search_flights(origin: str, destination: str) -> List[Flight]:
+    def search_flights(db: Session, origin: Optional[str] = None, destination: Optional[str] = None) -> List[Flight]:
         """
-        Search for flights matching origin and destination.
+        Search for flights matching criteria from database.
         
         Args:
-            origin: Origin airport code
-            destination: Destination airport code
+            db: Database session
+            origin: Origin airport code (optional)
+            destination: Destination airport code (optional)
             
         Returns:
             List of matching flights
         """
+        query = db.query(FlightModel)
+        
+        if origin:
+            query = query.filter(FlightModel.origin.ilike(origin))
+        if destination:
+            query = query.filter(FlightModel.destination.ilike(destination))
+        
+        db_flights = query.all()
+        
+        # Convert to Pydantic models
         results = [
-            Flight(**flight) 
-            for flight in MOCK_FLIGHTS 
-            if flight["origin"].upper() == origin.upper() 
-            and flight["destination"].upper() == destination.upper()
+            Flight(
+                id=f.id,
+                flight_id=f.flight_id,
+                airline=f.airline,
+                origin=f.origin,
+                destination=f.destination,
+                departure_time=f.departure_time.isoformat(),
+                arrival_time=f.arrival_time.isoformat(),
+                price=float(f.price),
+                currency=f.currency,
+                available_seats=f.available_seats
+            )
+            for f in db_flights
         ]
+        
         return results
     
     @staticmethod
     def search_hotels(city: str) -> List[Hotel]:
         """
-        Search for hotels in a specific city.
+        Search for hotels in a specific city (mock data).
         
         Args:
             city: City name to search in
@@ -123,25 +145,39 @@ class SearchService:
         return results
     
     @staticmethod
-    def get_flight_by_id(flight_id: str) -> Flight | None:
+    def get_flight_by_id(db: Session, flight_id: int) -> Optional[Flight]:
         """
-        Get a specific flight by ID.
+        Get a specific flight by ID from database.
         
         Args:
+            db: Database session
             flight_id: Flight identifier
             
         Returns:
             Flight object if found, None otherwise
         """
-        for flight in MOCK_FLIGHTS:
-            if flight["flight_id"] == flight_id:
-                return Flight(**flight)
-        return None
+        db_flight = db.query(FlightModel).filter(FlightModel.id == flight_id).first()
+        
+        if not db_flight:
+            return None
+        
+        return Flight(
+            id=db_flight.id,
+            flight_id=db_flight.flight_id,
+            airline=db_flight.airline,
+            origin=db_flight.origin,
+            destination=db_flight.destination,
+            departure_time=db_flight.departure_time.isoformat(),
+            arrival_time=db_flight.arrival_time.isoformat(),
+            price=float(db_flight.price),
+            currency=db_flight.currency,
+            available_seats=db_flight.available_seats
+        )
     
     @staticmethod
-    def get_hotel_by_id(hotel_id: str) -> Hotel | None:
+    def get_hotel_by_id(hotel_id: str) -> Optional[Hotel]:
         """
-        Get a specific hotel by ID.
+        Get a specific hotel by ID (mock data).
         
         Args:
             hotel_id: Hotel identifier
@@ -153,3 +189,4 @@ class SearchService:
             if hotel["hotel_id"] == hotel_id:
                 return Hotel(**hotel)
         return None
+

@@ -1,0 +1,769 @@
+{
+	"info": {
+		"_postman_id": "travel-booking-api-001",
+		"name": "Travel Booking API - Complete Collection",
+		"description": "Complete API documentation and testing suite for Travel Booking System.\n\n**Base URL:** http://localhost:8000\n\n**Authentication:** Bearer Token (JWT)\n\n**Features:**\n- User Registration & Authentication\n- Flight Search\n- Hotel Search (Mock)\n- Booking Management\n- User Profile Management\n\n**Test Flow:**\n1. Register a new user\n2. Login to get access token\n3. Search for flights\n4. Create a booking\n5. View booking details\n6. Cancel booking",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Response has user data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    pm.expect(jsonData).to.have.property('full_name');",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"});",
+									"",
+									"pm.test(\"User is active\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.is_active).to.eql(true);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"full_name\": \"John Doe\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Register a new user account.\n\n**Request Body:**\n- `email` (string, required): Valid email address\n- `password` (string, required): Password (min 8 characters)\n- `full_name` (string, required): User's full name\n\n**Response:** User object with id, email, full_name, is_active"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has access token\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('access_token');",
+									"    pm.expect(jsonData).to.have.property('token_type');",
+									"    ",
+									"    // Save token for subsequent requests",
+									"    pm.environment.set(\"access_token\", jsonData.access_token);",
+									"});",
+									"",
+									"pm.test(\"Token type is bearer\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.token_type).to.eql('bearer');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "username",
+									"value": "john.doe@example.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "SecurePass123!",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticate user and receive JWT access token.\n\n**Request Body (form-data):**\n- `username` (string, required): User's email\n- `password` (string, required): User's password\n\n**Response:**\n- `access_token` (string): JWT token for authentication\n- `token_type` (string): Always \"bearer\"\n\n**Usage:** Include token in subsequent requests as:\n`Authorization: Bearer {access_token}`"
+					},
+					"response": []
+				}
+			],
+			"description": "User authentication endpoints for registration and login"
+		},
+		{
+			"name": "User Profile",
+			"item": [
+				{
+					"name": "Get My Profile",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Profile has required fields\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    pm.expect(jsonData).to.have.property('full_name');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/users/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"users",
+								"me"
+							]
+						},
+						"description": "Get current user's profile information.\n\n**Authentication:** Required (Bearer Token)\n\n**Response:** User object with id, email, full_name, is_active"
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Bookings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response is an array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/users/me/bookings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"users",
+								"me",
+								"bookings"
+							]
+						},
+						"description": "Get all bookings for the current user.\n\n**Authentication:** Required (Bearer Token)\n\n**Response:** Array of booking objects ordered by created_at (newest first)"
+					},
+					"response": []
+				}
+			],
+			"description": "User profile and booking history endpoints"
+		},
+		{
+			"name": "Search",
+			"item": [
+				{
+					"name": "Search Flights",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response is an array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});",
+									"",
+									"if (pm.response.json().length > 0) {",
+									"    pm.test(\"Flight has required fields\", function () {",
+									"        var flight = pm.response.json()[0];",
+									"        pm.expect(flight).to.have.property('id');",
+									"        pm.expect(flight).to.have.property('flight_id');",
+									"        pm.expect(flight).to.have.property('airline');",
+									"        pm.expect(flight).to.have.property('origin');",
+									"        pm.expect(flight).to.have.property('destination');",
+									"        pm.expect(flight).to.have.property('price');",
+									"        ",
+									"        // Save flight ID for booking",
+									"        pm.environment.set(\"flight_id\", flight.id);",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/search/flights?origin=JFK&destination=LAX",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"search",
+								"flights"
+							],
+							"query": [
+								{
+									"key": "origin",
+									"value": "JFK",
+									"description": "Origin airport code (e.g., JFK, LAX, ORD)"
+								},
+								{
+									"key": "destination",
+									"value": "LAX",
+									"description": "Destination airport code"
+								}
+							]
+						},
+						"description": "Search for available flights.\n\n**Query Parameters:**\n- `origin` (string, optional): Origin airport code\n- `destination` (string, optional): Destination airport code\n\n**Response:** Array of flight objects with:\n- id, flight_id, airline, origin, destination\n- departure_time, arrival_time\n- price, currency, available_seats\n\n**Note:** If no filters provided, returns all flights"
+					},
+					"response": []
+				},
+				{
+					"name": "Search All Flights",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/search/flights",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"search",
+								"flights"
+							]
+						},
+						"description": "Search all available flights without filters."
+					},
+					"response": []
+				},
+				{
+					"name": "Search Hotels",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response is an array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/search/hotels?city=Dubai",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"search",
+								"hotels"
+							],
+							"query": [
+								{
+									"key": "city",
+									"value": "Dubai",
+									"description": "City name to search hotels"
+								}
+							]
+						},
+						"description": "Search for hotels in a city.\n\n**Query Parameters:**\n- `city` (string, required): City name\n\n**Response:** Array of hotel objects (currently using mock data)\n\n**Note:** Hotel booking functionality to be implemented in future version"
+					},
+					"response": []
+				}
+			],
+			"description": "Search endpoints for flights and hotels"
+		},
+		{
+			"name": "Bookings",
+			"item": [
+				{
+					"name": "Create Booking",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Booking created successfully\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('status');",
+									"    pm.expect(jsonData.status).to.eql('PENDING');",
+									"    ",
+									"    // Save booking ID for other tests",
+									"    pm.environment.set(\"booking_id\", jsonData.id);",
+									"});",
+									"",
+									"pm.test(\"Has passenger data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('passenger_data');",
+									"    pm.expect(jsonData.passenger_data).to.have.property('passengers');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"flight_id\": 1,\n  \"passengers\": [\n    {\n      \"first_name\": \"John\",\n      \"last_name\": \"Doe\",\n      \"passport_number\": \"AB1234567\",\n      \"date_of_birth\": \"1990-01-15\"\n    },\n    {\n      \"first_name\": \"Jane\",\n      \"last_name\": \"Doe\",\n      \"passport_number\": \"AB7654321\",\n      \"date_of_birth\": \"1992-03-20\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/bookings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"bookings"
+							]
+						},
+						"description": "Create a new flight booking.\n\n**Authentication:** Required (Bearer Token)\n\n**Request Body:**\n- `flight_id` (integer, required): ID of the flight to book\n- `passengers` (array, required): List of passenger objects\n  - `first_name` (string): Passenger's first name\n  - `last_name` (string): Passenger's last name\n  - `passport_number` (string): Passport number\n  - `date_of_birth` (string): Date of birth (YYYY-MM-DD)\n\n**Response:** Booking object with status PENDING\n\n**Note:** Total price calculated as flight price × number of passengers"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Booking Details",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Booking details returned\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('user_id');",
+									"    pm.expect(jsonData).to.have.property('flight_id');",
+									"    pm.expect(jsonData).to.have.property('status');",
+									"    pm.expect(jsonData).to.have.property('total_price');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/bookings/{{booking_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"bookings",
+								"{{booking_id}}"
+							]
+						},
+						"description": "Get details of a specific booking.\n\n**Authentication:** Required (Bearer Token)\n\n**Path Parameters:**\n- `booking_id` (integer): Booking ID\n\n**Response:** Booking object\n\n**Security:** Users can only view their own bookings"
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Booking",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Booking cancelled\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql('CANCELLED');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/bookings/{{booking_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"bookings",
+								"{{booking_id}}"
+							]
+						},
+						"description": "Cancel a booking.\n\n**Authentication:** Required (Bearer Token)\n\n**Path Parameters:**\n- `booking_id` (integer): Booking ID\n\n**Response:** Updated booking object with status CANCELLED\n\n**Business Rules:**\n- Cannot cancel already cancelled booking\n- Users can only cancel their own bookings"
+					},
+					"response": []
+				}
+			],
+			"description": "Booking management endpoints - create, view, and cancel bookings"
+		},
+		{
+			"name": "Error Scenarios",
+			"item": [
+				{
+					"name": "Unauthorized Access",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test(\"Error message present\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('detail');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/users/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"users",
+								"me"
+							]
+						},
+						"description": "Test unauthorized access to protected endpoint.\n\n**Expected:** 401 Unauthorized"
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "username",
+									"value": "invalid@example.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "wrongpassword",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Test login with invalid credentials.\n\n**Expected:** 401 Unauthorized"
+					},
+					"response": []
+				},
+				{
+					"name": "Duplicate Email Registration",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"Error message about duplicate email\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.detail).to.include('already registered');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"AnotherPass123!\",\n  \"full_name\": \"John Duplicate\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Test registration with already registered email.\n\n**Expected:** 400 Bad Request"
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Flight Booking",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"flight_id\": 99999,\n  \"passengers\": [\n    {\n      \"first_name\": \"Test\",\n      \"last_name\": \"User\",\n      \"passport_number\": \"XX000000\",\n      \"date_of_birth\": \"1990-01-01\"\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/bookings",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"bookings"
+							]
+						},
+						"description": "Test booking with non-existent flight.\n\n**Expected:** 400 Bad Request"
+					},
+					"response": []
+				}
+			],
+			"description": "Test error scenarios and edge cases"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "booking_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "flight_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

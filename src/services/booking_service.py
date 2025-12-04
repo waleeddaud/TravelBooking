@@ -1,148 +1,136 @@
 """
-Booking service for managing flight and hotel bookings.
-
-Provides in-memory storage for bookings with CRUD operations.
+Booking service for managing flight bookings with database integration.
 """
 
-from datetime import datetime
+from sqlalchemy.orm import Session
 from typing import List, Optional
-import uuid
+from decimal import Decimal
+import json
 
+from src.repositories.booking_repo import BookingRepository
 from src.schemas.booking_schema import Booking, BookingCreate
 from src.services.search_service import SearchService
 
 
-# In-memory booking storage
-bookings_db: dict[str, dict] = {}
-
-
 class BookingService:
-    """Service for managing bookings."""
+    """Service for managing bookings with database."""
     
     @staticmethod
-    def create_booking(booking_data: BookingCreate, user_email: str) -> Booking:
+    def create_booking(db: Session, booking_data: BookingCreate, user_id: int) -> Booking:
         """
         Create a new booking.
         
         Args:
+            db: Database session
             booking_data: Booking creation data
-            user_email: Email of the user creating the booking
+            user_id: ID of the user creating the booking
             
         Returns:
             Created booking object
             
         Raises:
-            ValueError: If item (flight/hotel) not found or unavailable
+            ValueError: If flight not found or unavailable
         """
-        # Validate item exists and get price
-        total_price = 0.0
-        if booking_data.booking_type == "flight":
-            flight = SearchService.get_flight_by_id(booking_data.item_id)
-            if not flight:
-                raise ValueError(f"Flight {booking_data.item_id} not found")
-            if flight.available_seats < booking_data.passengers:
-                raise ValueError(f"Not enough available seats")
-            total_price = flight.price * booking_data.passengers
-        else:  # hotel
-            hotel = SearchService.get_hotel_by_id(booking_data.item_id)
-            if not hotel:
-                raise ValueError(f"Hotel {booking_data.item_id} not found")
-            if hotel.available_rooms < 1:
-                raise ValueError(f"No available rooms")
-            total_price = hotel.price_per_night  # Simplified: 1 night
+        # Validate flight exists
+        flight = SearchService.get_flight_by_id(db, booking_data.flight_id)
+        if not flight:
+            raise ValueError(f"Flight {booking_data.flight_id} not found")
+        if flight.available_seats < len(booking_data.passengers):
+            raise ValueError("Not enough available seats")
+        
+        # Calculate total price
+        total_price = Decimal(str(flight.price)) * len(booking_data.passengers)
+        
+        # Convert passenger list to dict for JSON storage
+        passenger_data = {
+            "passengers": [p.model_dump() for p in booking_data.passengers],
+            "flight_info": {
+                "flight_id": flight.flight_id,
+                "airline": flight.airline,
+                "origin": flight.origin,
+                "destination": flight.destination
+            }
+        }
         
         # Create booking
-        booking_id = str(uuid.uuid4())
-        now = datetime.utcnow()
+        booking_repo = BookingRepository(db)
+        db_booking = booking_repo.create(
+            user_id=user_id,
+            flight_id=booking_data.flight_id,
+            total_price=total_price,
+            passenger_data=passenger_data
+        )
         
-        booking = {
-            "booking_id": booking_id,
-            "user_email": user_email,
-            "booking_type": booking_data.booking_type,
-            "item_id": booking_data.item_id,
-            "status": "pending",
-            "passengers": booking_data.passengers,
-            "special_requests": booking_data.special_requests,
-            "total_price": total_price,
-            "currency": "USD",
-            "created_at": now,
-    
+        db.commit()
+        db.refresh(db_booking)
+        
+        return Booking.model_validate(db_booking)
     
     @staticmethod
-    def get_booking(booking_id: str, user_email: str) -> Optional[Booking]:
+    def get_booking(db: Session, booking_id: int, user_id: int) -> Optional[Booking]:
         """
         Get a booking by ID.
         
         Args:
+            db: Database session
             booking_id: Booking identifier
-            user_email: Email of the requesting user
+            user_id: ID of the requesting user
             
         Returns:
             Booking object if found and belongs to user, None otherwise
         """
-        booking = bookings_db.get(booking_id)
-        if booking and booking["user_email"] == user_email:
-            return Booking(**booking)
-        return None
+        booking_repo = BookingRepository(db)
+        db_booking = booking_repo.get_by_id(booking_id)
+        
+        if not db_booking or db_booking.user_id != user_id:
+            return None
+        
+        return Booking.model_validate(db_booking)
     
     @staticmethod
-    def get_user_bookings(user_email: str) -> List[Booking]:
+    def get_user_bookings(db: Session, user_id: int) -> List[Booking]:
         """
         Get all bookings for a user.
         
         Args:
-            user_email: User's email address
+            db: Database session
+            user_id: User ID
             
         Returns:
-            List of user's bookings
+            List of booking objects
         """
-        user_bookings = [
-            Booking(**booking) 
-            for booking in bookings_db.values() 
-            if booking["user_email"] == user_email
-        ]
-        return user_bookings
+        booking_repo = BookingRepository(db)
+        db_bookings = booking_repo.get_user_bookings(user_id)
+        
+        return [Booking.model_validate(b) for b in db_bookings]
     
     @staticmethod
-    def update_booking_status(
-        booking_id: str, 
-        user_email: str, 
-        new_status: str
-    ) -> Optional[Booking]:
-        """
-        Update booking status (confirm or cancel).
-        
-        Args:
-            booking_id: Booking identifier
-            user_email: Email of the requesting user
-            new_status: New status value
-            
-        Returns:
-            Updated booking if successful, None otherwise
-        """
-        booking = bookings_db.get(booking_id)
-        if not booking or booking["user_email"] != user_email:
-            return None
-        
-        booking["status"] = new_status
-        booking["updated_at"] = datetime.utcnow()
-        
-        return Booking(**booking)
-    
-    @staticmethod
-    def cancel_booking(booking_id: str, user_email: str) -> Optional[Booking]:
+    def cancel_booking(db: Session, booking_id: int, user_id: int) -> Optional[Booking]:
         """
         Cancel a booking.
         
         Args:
+            db: Database session
             booking_id: Booking identifier
-            user_email: Email of the requesting user
+            user_id: ID of the user cancelling
             
         Returns:
-            Cancelled booking if successful, None otherwise
+            Updated booking object or None if not found
+            
+        Raises:
+            ValueError: If booking already cancelled
         """
-        return BookingService.update_booking_status(
-            booking_id, 
-            user_email, 
-            "cancelled"
-        )
+        booking_repo = BookingRepository(db)
+        db_booking = booking_repo.get_by_id(booking_id)
+        
+        if not db_booking or db_booking.user_id != user_id:
+            return None
+        
+        if db_booking.status == "CANCELLED":
+            raise ValueError("Booking already cancelled")
+        
+        updated_booking = booking_repo.update_status(booking_id, "CANCELLED")
+        db.commit()
+        db.refresh(updated_booking)
+        
+        return Booking.model_validate(updated_booking)
