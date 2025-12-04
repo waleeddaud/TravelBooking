@@ -1,0 +1,462 @@
+openapi: 3.0.3
+info:
+  title: Travel Booking API
+  description: |
+    Production-ready Travel Booking API with authentication, flight/hotel search, and booking management.
+    
+    ## Authentication
+    Most endpoints require JWT authentication. To authenticate:
+    1. Register at `/auth/register`
+    2. Login at `/auth/login` to receive an access token
+    3. Include the token in the Authorization header: `Bearer {token}`
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@travelapi.com
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.travelapi.com
+    description: Production server
+
+tags:
+  - name: Root
+    description: Health check and API information
+  - name: Authentication
+    description: User registration and login
+  - name: Search
+    description: Search for flights and hotels
+  - name: Bookings
+    description: Manage bookings (requires authentication)
+  - name: Users
+    description: User profile and booking history (requires authentication)
+
+paths:
+  /:
+    get:
+      tags:
+        - Root
+      summary: Root endpoint
+      description: API welcome message and health check
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  version:
+                    type: string
+                  docs_url:
+                    type: string
+                  status:
+                    type: string
+
+  /health:
+    get:
+      tags:
+        - Root
+      summary: Health check
+      description: Check API health status
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  api:
+                    type: string
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegister'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Email already registered or validation error
+        '500':
+          description: Internal server error
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate and receive JWT access token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: User email address
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '401':
+          description: Invalid credentials
+        '500':
+          description: Internal server error
+
+  /search/flights:
+    get:
+      tags:
+        - Search
+      summary: Search flights
+      description: Search for flights by origin and destination
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Origin airport code (e.g., LHE)
+        - name: destination
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Destination airport code (e.g., DXB)
+      responses:
+        '200':
+          description: Flight search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Flight'
+        '500':
+          description: Internal server error
+
+  /search/hotels:
+    get:
+      tags:
+        - Search
+      summary: Search hotels
+      description: Search for hotels in a specific city
+      parameters:
+        - name: city
+          in: query
+          required: true
+          schema:
+            type: string
+          description: City name (e.g., Dubai)
+      responses:
+        '200':
+          description: Hotel search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hotel'
+        '500':
+          description: Internal server error
+
+  /bookings:
+    post:
+      tags:
+        - Bookings
+      summary: Create booking
+      description: Create a new flight or hotel booking (requires authentication)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreate'
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: Invalid request or item not available
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+
+  /bookings/{booking_id}:
+    get:
+      tags:
+        - Bookings
+      summary: Get booking details
+      description: Retrieve booking information by ID (requires authentication)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Booking ID
+      responses:
+        '200':
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Booking not found
+        '500':
+          description: Internal server error
+
+  /bookings/{booking_id}/cancel:
+    patch:
+      tags:
+        - Bookings
+      summary: Cancel booking
+      description: Cancel an existing booking (requires authentication)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: booking_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Booking ID
+      responses:
+        '200':
+          description: Booking cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Booking not found
+        '500':
+          description: Internal server error
+
+  /users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      description: Retrieve authenticated user's profile information
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+  /users/me/bookings:
+    get:
+      tags:
+        - Users
+      summary: Get user booking history
+      description: Retrieve all bookings for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User's booking history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+        '401':
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login
+
+  schemas:
+    UserRegister:
+      type: object
+      required:
+        - email
+        - password
+        - full_name
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecurePass123!
+        full_name:
+          type: string
+          example: John Doe
+
+    User:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        is_active:
+          type: boolean
+
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          default: bearer
+
+    Flight:
+      type: object
+      properties:
+        flight_id:
+          type: string
+        airline:
+          type: string
+        origin:
+          type: string
+        destination:
+          type: string
+        departure_time:
+          type: string
+          format: date-time
+        arrival_time:
+          type: string
+          format: date-time
+        price:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: USD
+        available_seats:
+          type: integer
+
+    Hotel:
+      type: object
+      properties:
+        hotel_id:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        address:
+          type: string
+        rating:
+          type: number
+          format: float
+        price_per_night:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: USD
+        available_rooms:
+          type: integer
+
+    BookingCreate:
+      type: object
+      required:
+        - booking_type
+        - item_id
+      properties:
+        booking_type:
+          type: string
+          enum: [flight, hotel]
+        item_id:
+          type: string
+          description: Flight ID or Hotel ID
+        passengers:
+          type: integer
+          default: 1
+        special_requests:
+          type: string
+
+    Booking:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        user_email:
+          type: string
+        booking_type:
+          type: string
+          enum: [flight, hotel]
+        item_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+        passengers:
+          type: integer
+        special_requests:
+          type: string
+        total_price:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: USD
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
