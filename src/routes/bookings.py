@@ -46,7 +46,7 @@ async def create_booking(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Booking creation failed: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/{booking_id}", response_model=Booking)
